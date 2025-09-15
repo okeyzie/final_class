@@ -37,3 +37,26 @@ exports.register = async (req, res) => {
     }   
 };
 
+
+
+exports.getOne = async (req, res) => {
+    try {
+        const id = req.params.id;
+
+        const getUser = await userModel.findById(id);
+
+        if (!getUser) {
+            res.status(404).json(`User not found`)
+        }
+
+        res.status(200).json({
+            message: `User found`,
+            data: getUser
+        })
+
+    } catch (error) {
+        res.status(500).json({ 
+            message: 'Internal Server error', 
+            error: error.message })
+    }
+}
