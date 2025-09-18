@@ -30,8 +30,8 @@ const userSchema = new mongoose.Schema({
         unquie:true
     },
     profilePicture: {
-        imageUrl:{type: String, required:false },
-        publicId:{type: String, required:false }
+        imageUrl:{type: String, required:true },
+        publicId:{type: String, required:true }
     }
 }, 
 { timestamps: true })
