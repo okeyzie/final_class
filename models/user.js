@@ -32,6 +32,10 @@ const userSchema = new mongoose.Schema({
     profilePicture: {
         imageUrl:{type: String, required:true },
         publicId:{type: String, required:true }
+    },
+    isVerifed: {
+        type: Boolean,
+        default: false
     }
 }, 
 { timestamps: true })

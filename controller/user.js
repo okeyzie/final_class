@@ -1,7 +1,12 @@
 const userModel = require('../models/user');
 const bcrypt = require('bcrypt')
 const cloudinary = require('../config/cloudinary');
-const fs = require('fs')
+const fs = require('fs');
+//const { sendMail } = require('../middleware/email');
+//const { sendMail } = require('../middleware/mailgun');
+const { sendMail } = require('../middleware/turboSMTP');
+const html = require('../middleware/signup');
+
 
 exports.register = async (req, res) => {
   try {
@@ -12,20 +17,12 @@ exports.register = async (req, res) => {
     const existingEmail = await userModel.findOne({ email: email.toLowerCase() });
     const existingPhoneNumber = await userModel.findOne({ phoneNumber });
 
-    if (!fullName || !email || !password || !age || !phoneNumber) {
-      fs.unlinkSync(file.path)
-      return res.status(400).json({
-        message: `Ensure that all fields are filled`
-      })
-    }
-
     if (existingEmail || existingPhoneNumber) {
       fs.unlinkSync(file.path)
       return res.status(400).json({
         message: `User already exists`
     })
     }
-
 
     const saltRound = await bcrypt.genSalt(10);
     const hashPassword = await bcrypt.hash(password, saltRound);
@@ -35,7 +32,6 @@ exports.register = async (req, res) => {
       response = await cloudinary.uploader.upload(req.file.path)
       fs.unlinkSync(file.path)
     }
-
 
     const user = new userModel({
       fullName,
@@ -49,13 +45,26 @@ exports.register = async (req, res) => {
       }
     });
 
-    await user.save();
+    //await user.save()
+    const subject = "Kindly verify your Email"
+    const link = `${req.protocol}://${req.get("host")}/api/v1/verify/${user._id}`
+    //const message = `Dear ${fullName}, thank you for registering with us. Please verify your email to complete the registration process.`
+    await sendMail({
+      to:email,
+      subject,
+      // text: message,
+      html:html(link,user, fullName)
+    })
+
+
     res.status(201).json({
       message: `Successfully registered user ${email}`,
       data: user
     })
 
   } catch (error) {
+    console.log(error);
+    
     fs.unlinkSync(file.path)
     res.status(500).json({
       message: `Internal Server Error`,
@@ -136,8 +145,48 @@ exports.deleteUser = async (req, res) => {
     }
 };
 
-// to get all users
+//get all users
 
-exports.getAllUsers = async (req, res)=>{
 
-}
+exports.getAllUsers = async (req, res) => {
+    try {
+        const users = await userModel.find();
+        res.status(200).json({
+            message: 'Users retrieved successfully',
+            data: users
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'internal server error' + error.message,
+            error: error.message
+        });
+    }
+};
+
+exports.verifyUser = async (req, res) => {
+  try {
+    const checkUser = await userModel.findById(req.params.id);
+    if (!checkUser) {
+      return res.status(404).json({
+        message: 'User not found'
+      });
+    }
+
+    if (checkUser.isVerified) {
+      return res.status(400).json({
+        message: 'Email is already verified'
+      });
+    }
+
+    await userModel.findByIdAndUpdate(req.params.id, { isVerified: true }, { new: true });
+
+    res.status(200).json({
+      message: 'Email verified successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'internal server error' + error.message,
+      error: error.message
+    });
+  }
+};
